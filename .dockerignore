@@ -1,0 +1,6 @@
+backstage/dist-types
+backstage/node_modules
+backstage/packages/*/dist
+backstage/packages/*/node_modules
+backstage/plugins/*/dist
+backstage/plugins/*/node_modules

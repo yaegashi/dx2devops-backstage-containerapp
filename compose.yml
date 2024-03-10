@@ -1,0 +1,18 @@
+version: '3'
+services:
+  backstage:
+    image: backstage
+    build: .
+    env_file:
+      - docker.env
+    ports:
+      - 7007:7007
+    volumes:
+      - ./data:/data
+      - ./app-config.yaml:/app/app-config.yaml
+  postgres:
+    image: postgres:latest
+    env_file:
+      - docker.env
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
