@@ -5,12 +5,11 @@ param tags object = {}
 param storageAccountName string
 param containerRegistryLoginServer string
 param userAssignedIdentityName string
-param appImage string
-@secure()
+param imageName string
 param kvAppDbUrl string
 param msTenantId string = ''
 param msClientId string = ''
-@secure()
+#disable-next-line secure-secrets-in-params
 param kvMsClientSecret string = ''
 param tz string
 
@@ -29,13 +28,16 @@ resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' existing = {
 }
 
 // See https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/list-service-sas
-var sas = storage.listServiceSAS('2022-05-01', {
+var sas = storage.listServiceSAS(
+  '2022-05-01',
+  {
     canonicalizedResource: '/blob/${storage.name}/token-store'
     signedProtocol: 'https'
     signedResource: 'c'
     signedPermission: 'rwdl'
     signedExpiry: '3000-01-01T00:00:00Z'
-  }).serviceSasToken
+  }
+).serviceSasToken
 var sasUrl = 'https://${storage.name}.blob.${environment().suffixes.storage}/token-store?${sas}'
 
 resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2023-08-01-preview' existing = {
@@ -45,7 +47,7 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2023-08-01-
 resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
   name: containerAppName
   location: location
-  tags: tags
+  tags: union(tags, { 'azd-service-name': 'web' })
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
@@ -85,9 +87,11 @@ resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
     template: {
       containers: [
         {
-          name: 'backstage'
-          image: appImage
+          name: 'main'
+          image: !empty(imageName) ? imageName : 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
           env: [
+            { name: 'NODE_OPTIONS', value: '--max-http-header-size=32768' }
+            { name: 'PORT', value: '7007' } // for containerapps-helloworld
             { name: 'TZ', value: tz }
             { name: 'WEBSITE_SKU', value: 'Basic' }
             { name: 'WEBSITE_AUTH_ENABLED', value: 'true' }
@@ -95,7 +99,9 @@ resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
             { name: 'WEBSITE_AUTH_TOKEN_STORE', value: 'true' }
             { name: 'APP_CONFIG_auth_environment', value: '"production"' }
             { name: 'APP_CONFIG_auth_providers_easyAuth', value: '{}' }
+            { name: 'APP_CONFIG_backend_database_client', value: '"pg"' }
             { name: 'APP_CONFIG_backend_database_connection', secretRef: 'app-db-url' }
+            { name: 'APP_CONFIG_backend_auth_keys', value: '[{"secret":"secret"}]' }
           ]
           probes: [
             {
@@ -124,45 +130,47 @@ resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
       }
     }
   }
-  resource authConfigs 'authConfigs' = if (!empty(msTenantId) && !empty(msClientId)) {
-    name: 'current'
-    properties: {
-      identityProviders: {
-        azureActiveDirectory: {
-          registration: {
-            clientId: msClientId
-            clientSecretSettingName: 'microsoft-provider-authentication-secret'
-            openIdIssuer: 'https://sts.windows.net/${msTenantId}/v2.0'
-          }
-          validation: {
-            allowedAudiences: [
-              'api://${msClientId}'
-            ]
-          }
-          login: {
-            loginParameters: [ 'scope=openid profile email offline_access' ]
+  resource authConfigs 'authConfigs' =
+    if (!empty(msTenantId) && !empty(msClientId)) {
+      name: 'current'
+      properties: {
+        identityProviders: {
+          azureActiveDirectory: {
+            registration: {
+              clientId: msClientId
+              clientSecretSettingName: 'microsoft-provider-authentication-secret'
+              openIdIssuer: 'https://sts.windows.net/${msTenantId}/v2.0'
+            }
+            validation: {
+              allowedAudiences: [
+                'api://${msClientId}'
+              ]
+            }
+            login: {
+              loginParameters: ['scope=openid profile email offline_access']
+            }
           }
         }
-      }
-      platform: {
-        enabled: true
-      }
-      login: {
-        // https://github.com/backstage/backstage/issues/21654
-        allowedExternalRedirectUrls: [
-          'https://${containerApp.properties.configuration.ingress.fqdn}'
-        ]
-        tokenStore: {
+        platform: {
           enabled: true
-          azureBlobStorage: {
-            sasUrlSettingName: 'token-store-url'
+        }
+        login: {
+          // https://github.com/backstage/backstage/issues/21654
+          allowedExternalRedirectUrls: [
+            'https://${containerApp.properties.configuration.ingress.fqdn}'
+          ]
+          tokenStore: {
+            enabled: true
+            azureBlobStorage: {
+              sasUrlSettingName: 'token-store-url'
+            }
           }
         }
       }
     }
-  }
 }
 
 output defaultDomain string = containerAppsEnvironment.properties.defaultDomain
 output id string = containerApp.id
 output name string = containerApp.name
+output fqdn string = containerApp.properties.configuration.ingress.fqdn

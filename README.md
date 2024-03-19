@@ -1,113 +1,46 @@
 # dx2devops-backstage-containerapp
 
-Bootstrap:
-```console
-$ ./bootstrap.sh
-$ git add -A backstage
-$ git commit
-```
+## Introduction
 
-Local container build and test:
+DX2 DevOps solution for [Backstage] on [Azure Container Apps][ACA] using the [Azure Developer CLI][AZD] (AZD).
+
+It utilizes the [Azure EasyAuth Provider](https://backstage.io/docs/auth/microsoft/easy-auth/) for the user authentication.
+
+[Backstage]: https://backstage.io
+[ACA]: https://learn.microsoft.com/en-us/azure/container-apps/overview
+[AZD]: https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/overview
+
+## Local development
+
+Locally build and test the container:
+
 ```console
 $ docker compose build
 $ docker compose up -d
 $ xdg-open http://localhost:7007
 ```
 
-Deploy Azure container app:
+## Azure deployment
+
+Register a Microsoft Entra ID (ME-ID) app for the user authentication
+([see doc](https://learn.microsoft.com/ja-jp/entra/identity-platform/scenario-web-app-sign-user-app-registration)).
+You need the following information of your app:
+
+- Tenant ID
+- Client ID
+- Client Secret
+
+Deploy Azure container app using Azure CLI (az) and Azure Developer CLI (azd):
+
 ```console
-$ az login
 $ azd auth login
 $ azd env new <ENV-NAME>
-$ azd env set MS_TENANT_ID <GUID>
-$ azd env set MS_CLIENT_ID <GUID>
-$ azd env set MS_CLIENT_SECRET <SECRET-STRING>
-$ azd provision      # First provision without container app
-$ ./docker-build.sh  # Build and push to container registry
-$ azd provision      # Next provision with container app
+$ azd env set MS_TENANT_ID <TENANT-ID>
+$ azd env set MS_CLIENT_ID <CLIENT-ID>
+$ azd env set MS_CLIENT_SECRET <CLIENT-SECRET>
+$ azd provision               # Provision Azure container app resources
+$ azd deploy                  # Build and deploy a container to the app
+$ az login
+$ ./update-redirect-uris.sh   # Update redirect URIs of the ME-ID app using az
 ```
 
-Backstage diff to enable [Azure EasyAuth Provider](https://backstage.io/docs/auth/microsoft/easy-auth/)
-```diff
-diff --git a/packages/app/src/App.tsx b/packages/app/src/App.tsx
-index 8d62f29..b7370d8 100644
---- a/packages/app/src/App.tsx
-+++ b/packages/app/src/App.tsx
-@@ -27,12 +27,13 @@ import { entityPage } from './components/catalog/EntityPage';
- import { searchPage } from './components/search/SearchPage';
- import { Root } from './components/Root';
- 
--import { AlertDisplay, OAuthRequestDialog } from '@backstage/core-components';
-+import { AlertDisplay, OAuthRequestDialog, ProxiedSignInPage, SignInPage } from '@backstage/core-components';
- import { createApp } from '@backstage/app-defaults';
- import { AppRouter, FlatRoutes } from '@backstage/core-app-api';
- import { CatalogGraphPage } from '@backstage/plugin-catalog-graph';
- import { RequirePermission } from '@backstage/plugin-permission-react';
- import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
-+import { configApiRef, useApi } from '@backstage/core-plugin-api';
- 
- const app = createApp({
-   apis,
-@@ -53,6 +54,15 @@ const app = createApp({
-       catalogIndex: catalogPlugin.routes.catalogIndex,
-     });
-   },
-+  components: {
-+    SignInPage: props => {
-+      const configApi = useApi(configApiRef);
-+      if (configApi.getString('auth.environment') === 'development') {
-+        return <SignInPage {...props} providers={["guest"]} auto />;
-+      }
-+      return <ProxiedSignInPage {...props} provider="easyAuth" />;
-+    }
-+  },
- });
- 
- const routes = (
-diff --git a/packages/backend/src/plugins/auth.ts b/packages/backend/src/plugins/auth.ts
-index 77eb6aa..6cfcc01 100644
---- a/packages/backend/src/plugins/auth.ts
-+++ b/packages/backend/src/plugins/auth.ts
-@@ -5,6 +5,7 @@ import {
- } from '@backstage/plugin-auth-backend';
- import { Router } from 'express';
- import { PluginEnvironment } from '../types';
-+import { DEFAULT_NAMESPACE, stringifyEntityRef } from '@backstage/catalog-model';
- 
- export default async function createPlugin(
-   env: PluginEnvironment,
-@@ -49,6 +50,33 @@ export default async function createPlugin(
-           // resolver: providers.github.resolvers.usernameMatchingUserEntityName(),
-         },
-       }),
-+
-+      // https://backstage.io/docs/auth/microsoft/easy-auth
-+      easyAuth: providers.easyAuth.create({
-+        signIn: {
-+          resolver: async (info, ctx) => {
-+            const {
-+              fullProfile: { id, username },
-+            } = info.result;
-+
-+            if (!id) {
-+              throw new Error('User profile contained no id');
-+            }
-+
-+            const userEntity = stringifyEntityRef({
-+              kind: 'User',
-+              name: username || id,
-+              namespace: DEFAULT_NAMESPACE,
-+            });
-+            return ctx.issueToken({
-+              claims: {
-+                sub: userEntity,
-+                ent: [userEntity],
-+              },
-+            });
-+          },
-+        },
-+      }),
-     },
-   });
- }
-```

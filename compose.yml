@@ -1,6 +1,7 @@
 version: '3'
 services:
   backstage:
+    depends_on: [ postgres ]
     image: backstage
     build: .
     env_file:
@@ -8,11 +9,10 @@ services:
     ports:
       - 7007:7007
     volumes:
-      - ./data:/data
       - ./app-config.yaml:/app/app-config.yaml
   postgres:
     image: postgres:latest
-    env_file:
-      - docker.env
+    environment:
+      POSTGRES_PASSWORD: secret
     volumes:
       - ./data/postgres:/var/lib/postgresql/data

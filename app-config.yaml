@@ -1,23 +1,21 @@
 app:
   baseUrl: http://localhost:7007
-  title: Scaffolded Backstage App
   listen:
     port: 7007
 
 backend:
   baseUrl: http://localhost:7007
-  listen:
-    port: 7007
+  listen: :7007
   database:
     client: pg
     connection: 'postgresql://postgres:secret@postgres:5432'
 
 techdocs:
-  builder: 'local' # Alternatives - 'external'
+  builder: local
   generator:
-    runIn: 'docker' # Alternatives - 'local'
+    runIn: local
   publisher:
-    type: 'local' # Alternatives - 'googleGcs' or 'awsS3'. Read documentation for using alternatives.
+    type: local
 
 catalog:
   rules:

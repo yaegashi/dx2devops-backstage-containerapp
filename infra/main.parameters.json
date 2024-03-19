@@ -20,12 +20,6 @@
     "dbAdminPass": {
       "value": "${DB_ADMIN_PASS=$(secretOrRandomPassword ${AZURE_KEY_VAULT_NAME} DB-ADMIN-PASS)}"
     },
-    "appImageName": {
-      "value": "${APP_IMAGE_NAME}"
-    },
-    "appImageTag": {
-      "value": "${APP_IMAGE_TAG}"
-    },
     "msTenantId": {
       "value": "${MS_TENANT_ID}"
     },
@@ -34,6 +28,9 @@
     },
     "msClientSecret": {
       "value": "${MS_CLIENT_SECRET}"
+    },
+    "webAppExists": {
+      "value": "${SERVICE_WEB_RESOURCE_EXISTS=false}"
     }
   }
 }

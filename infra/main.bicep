@@ -13,6 +13,8 @@ param principalId string
 
 param resourceGroupName string = ''
 
+param webAppExists bool = false
+
 param keyVaultName string = ''
 
 param dbName string = ''
@@ -38,16 +40,12 @@ param containerAppsEnvironmentName string = ''
 
 param containerAppName string = ''
 
-param appImageName string = ''
+param msTenantId string
 
-param appImageTag string = ''
-
-param msTenantId string = ''
-
-param msClientId string = ''
+param msClientId string
 
 @secure()
-param msClientSecret string = ''
+param msClientSecret string
 
 param tz string = 'Asia/Tokyo'
 
@@ -83,6 +81,17 @@ module keyVaultSecretDbAdminPass './core/security/keyvault-secret.bicep' = {
   name: 'keyVaultSecretDbAdminPass'
   scope: rg
   params: {
+    name: 'DB-ADMIN-PASS'
+    tags: tags
+    keyVaultName: keyVault.outputs.name
+    secretValue: dbAdminPass
+  }
+}
+
+module keyVaultSecretAppDbUrl './core/security/keyvault-secret.bicep' = {
+  name: 'keyVaultSecretAppDbUrl'
+  scope: rg
+  params: {
     name: 'APP-DB-URL'
     tags: tags
     keyVaultName: keyVault.outputs.name
@@ -105,7 +114,9 @@ module userAssignedIdentity './app/identity.bicep' = {
   name: 'userAssignedIdentity'
   scope: rg
   params: {
-    name: !empty(userAssignedIdentityName) ? userAssignedIdentityName : '${abbrs.managedIdentityUserAssignedIdentities}${resourceToken}'
+    name: !empty(userAssignedIdentityName)
+      ? userAssignedIdentityName
+      : '${abbrs.managedIdentityUserAssignedIdentities}${resourceToken}'
     location: location
     tags: tags
   }
@@ -121,10 +132,11 @@ module keyVaultAccess './core/security/keyvault-access.bicep' = {
 }
 
 module containerRegistryAccess './core/security/registry-access.bicep' = {
-  name: 'sharedRegistryAccess'
+  dependsOn: [containerRegistry]
+  name: 'containerRegistryAccess'
   scope: rg
   params: {
-    containerRegistryName: xContainerRegistryName
+    containerRegistryName: containerRegistry.outputs.name
     principalId: userAssignedIdentity.outputs.principalId
   }
 }
@@ -146,6 +158,7 @@ module psql './core/database/postgresql/flexibleserver.bicep' = {
     storage: {
       storageSizeGB: 32
     }
+    allowAzureIPsFirewall: true
   }
 }
 
@@ -155,7 +168,7 @@ module containerRegistry './core/host/container-registry.bicep' = {
   params: {
     location: location
     tags: tags
-    name: xContainerRegistryName
+    name: !empty(containerRegistryName) ? containerRegistryName : '${abbrs.containerRegistryRegistries}${resourceToken}'
     workspaceId: monitoring.outputs.logAnalyticsWorkspaceId
   }
 }
@@ -166,9 +179,15 @@ module monitoring './core/monitor/monitoring.bicep' = {
   params: {
     location: location
     tags: tags
-    logAnalyticsName: !empty(logAnalyticsName) ? logAnalyticsName : '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
-    applicationInsightsName: !empty(applicationInsightsName) ? applicationInsightsName : '${abbrs.insightsComponents}${resourceToken}'
-    applicationInsightsDashboardName: !empty(applicationInsightsDashboardName) ? applicationInsightsDashboardName : '${abbrs.portalDashboards}${resourceToken}'
+    logAnalyticsName: !empty(logAnalyticsName)
+      ? logAnalyticsName
+      : '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
+    applicationInsightsName: !empty(applicationInsightsName)
+      ? applicationInsightsName
+      : '${abbrs.insightsComponents}${resourceToken}'
+    applicationInsightsDashboardName: !empty(applicationInsightsDashboardName)
+      ? applicationInsightsDashboardName
+      : '${abbrs.portalDashboards}${resourceToken}'
   }
 }
 
@@ -183,10 +202,16 @@ module storageAccount './core/storage/storage-account.bicep' = {
 }
 
 var xTZ = !empty(tz) ? tz : 'Asia/Tokyo'
-var xAppImage = '${appImageName}:${appImageTag}'
-var xContainerAppsEnvironmentName = !empty(containerAppsEnvironmentName) ? containerAppsEnvironmentName : '${abbrs.appManagedEnvironments}${resourceToken}'
+var xContainerAppsEnvironmentName = !empty(containerAppsEnvironmentName)
+  ? containerAppsEnvironmentName
+  : '${abbrs.appManagedEnvironments}${resourceToken}'
 var xContainerAppName = !empty(containerAppName) ? containerAppName : '${abbrs.appContainerApps}${resourceToken}'
-var xContainerRegistryName = !empty(containerRegistryName) ? containerRegistryName : '${abbrs.containerRegistryRegistries}${resourceToken}'
+
+resource existingApp 'Microsoft.App/containerApps@2023-08-01-preview' existing =
+  if (webAppExists) {
+    scope: rg
+    name: xContainerAppName
+  }
 
 module env './app/env.bicep' = {
   name: 'env'
@@ -199,8 +224,8 @@ module env './app/env.bicep' = {
   }
 }
 
-module app './app/app.bicep' = if (!empty(appImageTag)) {
-  dependsOn: [ keyVaultAccess, containerRegistryAccess ]
+module app './app/app.bicep' = {
+  dependsOn: [keyVaultSecretAppDbUrl, keyVaultSecretMsClientSecret]
   name: 'app'
   scope: rg
   params: {
@@ -211,7 +236,7 @@ module app './app/app.bicep' = if (!empty(appImageTag)) {
     containerRegistryLoginServer: containerRegistry.outputs.loginServer
     userAssignedIdentityName: userAssignedIdentity.outputs.name
     storageAccountName: storageAccount.outputs.name
-    appImage: xAppImage
+    imageName: webAppExists ? existingApp.properties.template.containers[0].image : ''
     kvAppDbUrl: '${keyVault.outputs.endpoint}secrets/APP-DB-URL'
     msTenantId: msTenantId
     msClientId: msClientId
@@ -227,5 +252,6 @@ output AZURE_RESOURCE_GROUP_NAME string = rg.name
 output AZURE_KEY_VAULT_NAME string = keyVault.outputs.name
 output AZURE_KEY_VAULT_ENDPOINT string = keyVault.outputs.endpoint
 output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
-output AZURE_CONTAINER_REGISTRY_LOGIN_SERVER string = containerRegistry.outputs.loginServer
-output APP_IMAGE_NAME string = '${containerRegistry.outputs.loginServer}/app'
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
+output AZURE_CONTAINER_APP_NAME string = app.outputs.name
+output AZURE_CONTAINER_APP_FQDN string = app.outputs.fqdn
