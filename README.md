@@ -2,17 +2,21 @@
 
 ## Introduction
 
-DX2 DevOps solution for [Backstage] on [Azure Container Apps][ACA] using the [Azure Developer CLI][AZD] (AZD).
+This project integrates [Backstage] with [Azure Container Apps][ACA] using the [Azure Developer CLI][AZD] (AZD).
 
-It utilizes the [Azure EasyAuth Provider](https://backstage.io/docs/auth/microsoft/easy-auth/) for the user authentication.
+It includes [@internal/plugin-auth-backend-module-azure-easyauth-provider](backstage/plugins/auth-backend-module-azure-easyauth-provider)
+which is an auth backend module based on [Azure EasyAuth auth provider](https://backstage.io/docs/auth/microsoft/easy-auth/).
+The module is compatible with the new backend system introduced in [Backstage v1.24.0](https://backstage.io/docs/releases/v1.24.0) and later
+(see https://github.com/backstage/backstage/issues/19476 for more details).
 
 [Backstage]: https://backstage.io
 [ACA]: https://learn.microsoft.com/en-us/azure/container-apps/overview
 [AZD]: https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/overview
+[Azure EasyAuth Provider]: https://backstage.io/docs/auth/microsoft/easy-auth/
 
-## Local development
+## Local Development
 
-Locally build and test the container:
+Follow these steps to build and test the container locally:
 
 ```console
 $ docker compose build
@@ -20,17 +24,18 @@ $ docker compose up -d
 $ xdg-open http://localhost:7007
 ```
 
-## Azure deployment
+## Azure Deployment
 
-Register a Microsoft Entra ID (ME-ID) app for the user authentication
+First, register a Microsoft Entra ID (ME-ID) app for the user authentication
 ([see doc](https://learn.microsoft.com/ja-jp/entra/identity-platform/scenario-web-app-sign-user-app-registration)).
-You need the following information of your app:
+
+You will need the following information from your app:
 
 - Tenant ID
 - Client ID
 - Client Secret
 
-Deploy Azure container app using Azure CLI (az) and Azure Developer CLI (azd):
+Then, deploy the Azure container app using Azure CLI (az) and Azure Developer CLI (azd):
 
 ```console
 $ azd auth login
@@ -40,7 +45,7 @@ $ azd env set MS_CLIENT_ID <CLIENT-ID>
 $ azd env set MS_CLIENT_SECRET <CLIENT-SECRET>
 $ azd provision               # Provision Azure container app resources
 $ azd deploy                  # Build and deploy a container to the app
+
 $ az login
 $ ./update-redirect-uris.sh   # Update redirect URIs of the ME-ID app using az
 ```
-
