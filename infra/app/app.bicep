@@ -98,7 +98,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
             { name: 'WEBSITE_AUTH_DEFAULT_PROVIDER', value: 'AzureActiveDirectory' }
             { name: 'WEBSITE_AUTH_TOKEN_STORE', value: 'true' }
             { name: 'APP_CONFIG_auth_environment', value: '"production"' }
-            { name: 'APP_CONFIG_auth_providers_easyAuth', value: '{}' }
+            { name: 'APP_CONFIG_auth_providers_azureEasyAuth_signIn_resolvers', value: '[{"resolver":"idMatchingUserEntityAnnotation"}]' }
             { name: 'APP_CONFIG_backend_database_client', value: '"pg"' }
             { name: 'APP_CONFIG_backend_database_connection', secretRef: 'app-db-url' }
             { name: 'APP_CONFIG_backend_auth_keys', value: '[{"secret":"secret"}]' }
