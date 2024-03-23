@@ -2,11 +2,9 @@ targetScope = 'subscription'
 
 @minLength(1)
 @maxLength(64)
-@description('Name of the the environment which is used to generate a short unique hash used in all resources.')
 param environmentName string
 
 @minLength(1)
-@description('Primary location for all resources')
 param location string
 
 param principalId string
@@ -47,6 +45,9 @@ param msClientId string
 @secure()
 param msClientSecret string
 
+@secure()
+param authKeySecret string
+
 param tz string = 'Asia/Tokyo'
 
 param utcValue string = utcNow()
@@ -77,38 +78,33 @@ module keyVault './core/security/keyvault.bicep' = {
   }
 }
 
-module keyVaultSecretDbAdminPass './core/security/keyvault-secret.bicep' = {
-  name: 'keyVaultSecretDbAdminPass'
-  scope: rg
-  params: {
+var secrets = [
+  {
     name: 'DB-ADMIN-PASS'
-    tags: tags
-    keyVaultName: keyVault.outputs.name
-    secretValue: dbAdminPass
+    value: dbAdminPass
   }
-}
-
-module keyVaultSecretAppDbUrl './core/security/keyvault-secret.bicep' = {
-  name: 'keyVaultSecretAppDbUrl'
-  scope: rg
-  params: {
-    name: 'APP-DB-URL'
-    tags: tags
-    keyVaultName: keyVault.outputs.name
-    secretValue: '"postgresql://${dbAdminUser}:${dbAdminPass}@${psql.outputs.POSTGRES_DOMAIN_NAME}?sslmode=require"'
+  {
+    name: 'AUTH-KEY-SECRET'
+    value: authKeySecret
   }
-}
-
-module keyVaultSecretMsClientSecret './core/security/keyvault-secret.bicep' = {
-  name: 'keyVaultSecretMsClientSecret'
-  scope: rg
-  params: {
+  {
     name: 'MS-CLIENT-SECRET'
-    tags: tags
-    keyVaultName: keyVault.outputs.name
-    secretValue: msClientSecret
+    value: msClientSecret
   }
-}
+]
+
+@batchSize(1)
+module keyVaultSecrets './core/security/keyvault-secret.bicep' = [
+  for secret in secrets: {
+    name: 'keyvault-secret-${secret.name}'
+    scope: rg
+    params: {
+      keyVaultName: keyVault.outputs.name
+      name: secret.name
+      secretValue: secret.value
+    }
+  }
+]
 
 module userAssignedIdentity './app/identity.bicep' = {
   name: 'userAssignedIdentity'
@@ -225,7 +221,6 @@ module env './app/env.bicep' = {
 }
 
 module app './app/app.bicep' = {
-  dependsOn: [keyVaultSecretAppDbUrl, keyVaultSecretMsClientSecret]
   name: 'app'
   scope: rg
   params: {
@@ -237,10 +232,11 @@ module app './app/app.bicep' = {
     userAssignedIdentityName: userAssignedIdentity.outputs.name
     storageAccountName: storageAccount.outputs.name
     imageName: webAppExists ? existingApp.properties.template.containers[0].image : ''
-    kvAppDbUrl: '${keyVault.outputs.endpoint}secrets/APP-DB-URL'
+    appDbUrl: 'postgresql://${dbAdminUser}:${dbAdminPass}@${psql.outputs.POSTGRES_DOMAIN_NAME}?sslmode=require'
+    authKeySecret: authKeySecret
     msTenantId: msTenantId
     msClientId: msClientId
-    kvMsClientSecret: '${keyVault.outputs.endpoint}secrets/MS-CLIENT-SECRET'
+    msClientSecret: msClientSecret
     tz: xTZ
   }
 }

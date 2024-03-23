@@ -6,11 +6,14 @@ param storageAccountName string
 param containerRegistryLoginServer string
 param userAssignedIdentityName string
 param imageName string
-param kvAppDbUrl string
+@secure()
+param appDbUrl string
+@secure()
+param authKeySecret string
 param msTenantId string = ''
 param msClientId string = ''
-#disable-next-line secure-secrets-in-params
-param kvMsClientSecret string = ''
+@secure()
+param msClientSecret string = ''
 param tz string
 
 resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
@@ -70,13 +73,15 @@ resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
       secrets: [
         {
           name: 'app-db-url'
-          keyVaultUrl: kvAppDbUrl
-          identity: userAssignedIdentity.id
+          value: '"${appDbUrl}"'
+        }
+        {
+          name: 'auth-key-secrets'
+          value: '[{"secret":"${authKeySecret}"}]'
         }
         {
           name: 'microsoft-provider-authentication-secret'
-          keyVaultUrl: kvMsClientSecret
-          identity: userAssignedIdentity.id
+          value: msClientSecret
         }
         {
           name: 'token-store-url'
@@ -90,8 +95,10 @@ resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
           name: 'main'
           image: !empty(imageName) ? imageName : 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
           env: [
+            // containerapps-helloworld: avoid HTTP 431 error
             { name: 'NODE_OPTIONS', value: '--max-http-header-size=32768' }
-            { name: 'PORT', value: '7007' } // for containerapps-helloworld
+            // containerapps-helloworld: set listening port
+            { name: 'PORT', value: '7007' }
             { name: 'TZ', value: tz }
             { name: 'WEBSITE_SKU', value: 'Basic' }
             { name: 'WEBSITE_AUTH_ENABLED', value: 'true' }
@@ -101,7 +108,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
             { name: 'APP_CONFIG_auth_providers_azureEasyAuth_signIn_resolvers', value: '[{"resolver":"idMatchingUserEntityAnnotation"}]' }
             { name: 'APP_CONFIG_backend_database_client', value: '"pg"' }
             { name: 'APP_CONFIG_backend_database_connection', secretRef: 'app-db-url' }
-            { name: 'APP_CONFIG_backend_auth_keys', value: '[{"secret":"secret"}]' }
+            { name: 'APP_CONFIG_backend_auth_keys', secretRef: 'auth-key-secrets' }
           ]
           probes: [
             {

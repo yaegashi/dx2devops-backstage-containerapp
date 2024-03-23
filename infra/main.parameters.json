@@ -29,6 +29,9 @@
     "msClientSecret": {
       "value": "${MS_CLIENT_SECRET}"
     },
+    "authKeySecret": {
+      "value": "$(secretOrRandomPassword ${AZURE_KEY_VAULT_NAME} AUTH-KEY-SECRET)"
+    },
     "webAppExists": {
       "value": "${SERVICE_WEB_RESOURCE_EXISTS=false}"
     }
