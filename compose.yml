@@ -10,6 +10,7 @@ services:
       - 7007:7007
     volumes:
       - ./app-config.yaml:/app/app-config.yaml
+      - ./catalogs:/catalogs
   postgres:
     image: postgres:latest
     environment:

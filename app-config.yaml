@@ -1,14 +1,16 @@
 app:
+  title: Backstage Example App
   baseUrl: http://localhost:7007
-  listen:
-    port: 7007
 
 backend:
   baseUrl: http://localhost:7007
   listen: :7007
   database:
     client: pg
-    connection: 'postgresql://postgres:secret@postgres:5432'
+    connection: "postgresql://postgres:secret@postgres:5432"
+
+organization:
+  name: My Company
 
 techdocs:
   builder: local
@@ -18,5 +20,7 @@ techdocs:
     type: local
 
 catalog:
-  rules:
-    - allow: [Component, System, API, Resource, Location, Domain, Group, User]
+  locations:
+    - type: file
+      target: /catalogs/example.yaml
+      rules: [allow: [Component, System, API, Resource, Location, Domain, Group, User]]
