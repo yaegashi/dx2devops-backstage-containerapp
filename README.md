@@ -49,3 +49,9 @@ $ azd deploy                  # Build and deploy a container to the app
 $ az login
 $ ./update-redirect-uris.sh   # Update redirect URIs of the ME-ID app using az
 ```
+
+## Architecture
+
+### Solution overview
+
+![](doc/assets/deployment-diagram.png)
