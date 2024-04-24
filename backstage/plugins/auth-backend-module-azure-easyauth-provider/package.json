@@ -28,14 +28,14 @@
     "postpack": "backstage-cli package postpack"
   },
   "dependencies": {
-    "@backstage/backend-plugin-api": "workspace:^",
-    "@backstage/errors": "workspace:^",
-    "@backstage/plugin-auth-node": "workspace:^",
+    "@backstage/backend-plugin-api": "^0.6.17",
+    "@backstage/errors": "^1.2.4",
+    "@backstage/plugin-auth-node": "^0.4.12",
     "jose": "^5.0.0"
   },
   "devDependencies": {
-    "@backstage/backend-test-utils": "workspace:^",
-    "@backstage/cli": "workspace:^"
+    "@backstage/backend-test-utils": "^0.3.7",
+    "@backstage/cli": "^0.26.4"
   },
   "files": [
     "dist"
