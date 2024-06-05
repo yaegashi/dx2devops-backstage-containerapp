@@ -34,6 +34,18 @@
     },
     "webAppExists": {
       "value": "${SERVICE_WEB_RESOURCE_EXISTS=false}"
+    },
+    "appCertificateExists": {
+      "value": "${APP_CERTIFICATE_EXISTS=false}"
+    },
+    "dnsZoneResourceGroupName": {
+      "value": "${DNS_ZONE_RESOURCE_GROUP_NAME}"
+    },
+    "dnsZoneName": {
+      "value": "${DNS_ZONE_NAME}"
+    },
+    "dnsRecordName": {
+      "value": "${DNS_RECORD_NAME}"
     }
   }
 }

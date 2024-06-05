@@ -50,6 +50,14 @@ param authKeySecret string
 
 param tz string = 'Asia/Tokyo'
 
+param appCertificateExists bool = false
+
+param dnsZoneResourceGroupName string = ''
+
+param dnsZoneName string = ''
+
+param dnsRecordName string = ''
+
 param utcValue string = utcNow()
 
 var abbrs = loadJsonContent('./abbreviations.json')
@@ -60,6 +68,33 @@ var tags = {
 
 #disable-next-line no-unused-vars
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
+
+var dnsEnable = !empty(dnsZoneResourceGroupName) && !empty(dnsZoneName) && !empty(dnsRecordName)
+var appCustomDomainName = dnsEnable ? '${dnsRecordName}.${dnsZoneName}' : ''
+
+resource dnsZoneRG 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (dnsEnable && !appCertificateExists) {
+  name: dnsZoneResourceGroupName
+}
+
+module dnsTXT './app/dns-txt.bicep' = if (dnsEnable && !appCertificateExists) {
+  name: 'dnsTXT'
+  scope: dnsZoneRG
+  params: {
+    dnsZoneName: dnsZoneName
+    dnsRecordName: 'asuid.${dnsRecordName}'
+    txt: env.outputs.customDomainVerificationId
+  }
+}
+
+module dnsCNAME './app/dns-cname.bicep' = if (dnsEnable && !appCertificateExists) {
+  name: 'dnsCNAME'
+  scope: dnsZoneRG
+  params: {
+    dnsZoneName: dnsZoneName
+    dnsRecordName: dnsRecordName
+    cname: appPrep.outputs.fqdn
+  }
+}
 
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: !empty(resourceGroupName) ? resourceGroupName : '${abbrs.resourcesResourceGroups}${environmentName}'
@@ -203,11 +238,10 @@ var xContainerAppsEnvironmentName = !empty(containerAppsEnvironmentName)
   : '${abbrs.appManagedEnvironments}${resourceToken}'
 var xContainerAppName = !empty(containerAppName) ? containerAppName : '${abbrs.appContainerApps}${resourceToken}'
 
-resource existingApp 'Microsoft.App/containerApps@2023-08-01-preview' existing =
-  if (webAppExists) {
-    scope: rg
-    name: xContainerAppName
-  }
+resource existingApp 'Microsoft.App/containerApps@2023-08-01-preview' existing = if (webAppExists) {
+  scope: rg
+  name: xContainerAppName
+}
 
 module env './app/env.bicep' = {
   name: 'env'
@@ -220,7 +254,21 @@ module env './app/env.bicep' = {
   }
 }
 
+module appPrep './app/app-prep.bicep' = if (dnsEnable && !appCertificateExists) {
+  dependsOn: [dnsTXT]
+  name: 'appPrep'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    containerAppsEnvironmentName: env.outputs.name
+    containerAppName: xContainerAppName
+    appCustomDomainName: appCustomDomainName
+  }
+}
+
 module app './app/app.bicep' = {
+  dependsOn: [dnsCNAME]
   name: 'app'
   scope: rg
   params: {
@@ -231,6 +279,7 @@ module app './app/app.bicep' = {
     containerRegistryLoginServer: containerRegistry.outputs.loginServer
     userAssignedIdentityName: userAssignedIdentity.outputs.name
     storageAccountName: storageAccount.outputs.name
+    appCustomDomainName: appCustomDomainName
     imageName: webAppExists ? existingApp.properties.template.containers[0].image : ''
     appDbUrl: 'postgresql://${dbAdminUser}:${dbAdminPass}@${psql.outputs.POSTGRES_DOMAIN_NAME}?sslmode=require'
     authKeySecret: authKeySecret
@@ -251,3 +300,4 @@ output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
 output AZURE_CONTAINER_APP_NAME string = app.outputs.name
 output AZURE_CONTAINER_APP_FQDN string = app.outputs.fqdn
+output APP_CERTIFICATE_EXISTS bool = !empty(appCustomDomainName)
