@@ -5,6 +5,9 @@ app:
 backend:
   baseUrl: http://localhost:7007
   listen: :7007
+  csp:
+    connect-src: ["'self'", 'http:', 'https:']
+    img-src: ["'self'", 'data:', 'http:', 'https:']
   database:
     client: pg
     connection: "postgresql://postgres:secret@postgres:5432"
@@ -20,6 +23,10 @@ techdocs:
     type: local
 
 catalog:
+  orphanStrategy: delete
+  import:
+    entityFilename: catalog-info.yaml
+    pullRequestBranchName: backstage-integration
   locations:
     - type: file
       target: /catalogs/example.yaml
