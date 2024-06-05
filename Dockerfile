@@ -1,5 +1,5 @@
 # Stage 1 - Create yarn install skeleton layer
-FROM node:18-bookworm-slim AS packages
+FROM node:20-bookworm-slim AS packages
 
 WORKDIR /app
 COPY backstage/package.json backstage/yarn.lock ./
@@ -12,7 +12,7 @@ COPY backstage/plugins plugins
 RUN find packages \! -name "package.json" -mindepth 2 -maxdepth 2 -exec rm -rf {} \+
 
 # Stage 2 - Install dependencies and build packages
-FROM node:18-bookworm-slim AS build
+FROM node:20-bookworm-slim AS build
 
 # Install isolate-vm dependencies, these are needed by the @backstage/plugin-scaffolder-backend.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -48,7 +48,7 @@ RUN mkdir packages/backend/dist/skeleton packages/backend/dist/bundle \
     && tar xzf packages/backend/dist/bundle.tar.gz -C packages/backend/dist/bundle
 
 # Stage 3 - Build the actual backend image and install production dependencies
-FROM node:18-bookworm-slim
+FROM node:20-bookworm-slim
 
 # Install isolate-vm dependencies, these are needed by the @backstage/plugin-scaffolder-backend.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -63,6 +63,19 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
     apt-get install -y --no-install-recommends libsqlite3-dev
+
+# Install TechDocs dependencies.
+# Taken from https://github.com/backstage/demo/blob/master/Dockerfile
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends python3-pip python3-venv curl default-jre graphviz fonts-dejavu fontconfig
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+RUN pip3 install mkdocs-kroki-plugin mkdocs-techdocs-core
+RUN curl -o plantuml.jar -L https://github.com/plantuml/plantuml/releases/download/v1.2023.10/plantuml-1.2023.10.jar && echo "527d28af080ae91a455e7023e1a726c7714dc98e plantuml.jar" | sha1sum -c - && mv plantuml.jar /opt/plantuml.jar
+RUN echo '#!/bin/sh\n\njava -jar '/opt/plantuml.jar' ${@}' >> /usr/local/bin/plantuml && chmod 755 /usr/local/bin/plantuml
 
 # From here on we use the least-privileged `node` user to run the backend.
 USER node
