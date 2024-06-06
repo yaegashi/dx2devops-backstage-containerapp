@@ -301,3 +301,4 @@ output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.logi
 output AZURE_CONTAINER_APP_NAME string = app.outputs.name
 output AZURE_CONTAINER_APP_FQDN string = app.outputs.fqdn
 output APP_CERTIFICATE_EXISTS bool = !empty(appCustomDomainName)
+output SERVICE_WEB_RESOURCE_EXISTS bool = !empty(app.outputs.id)
