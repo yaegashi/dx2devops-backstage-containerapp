@@ -25,8 +25,11 @@ resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' existing = {
   name: storageAccountName
   resource blobService 'blobServices' = {
     name: 'default'
-    resource data 'containers' = {
+    resource tokenStore 'containers' = {
       name: 'token-store'
+    }
+    resource techdocs 'containers' = {
+      name: 'techdocs'
     }
   }
 }
@@ -108,6 +111,14 @@ resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
           name: 'token-store-url'
           value: sasUrl
         }
+        {
+          name: 'techdocs-name'
+          value: '"${storage.name}"'
+        }
+        {
+          name: 'techdocs-key'
+          value: '"${storage.listKeys().keys[0].value}"'
+        }
       ]
     }
     template: {
@@ -136,6 +147,10 @@ resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
             { name: 'APP_CONFIG_backend_database_connection', secretRef: 'app-db-url' }
             { name: 'APP_CONFIG_backend_auth_keys', secretRef: 'auth-key-secrets' }
             { name: 'APP_CONFIG_backend_baseUrl', value: '"https://${appCustomDomainName}"' }
+            { name: 'APP_CONFIG_techdocs_publisher_type', value: '"azureBlobStorage"' }
+            { name: 'APP_CONFIG_techdocs_publisher_azureBlobStorage_containerName', value: '"techdocs"' }
+            { name: 'APP_CONFIG_techdocs_publisher_azureBlobStorage_credentials_accountName', secretRef: 'techdocs-name' }
+            { name: 'APP_CONFIG_techdocs_publisher_azureBlobStorage_credentials_accountKey', secretRef: 'techdocs-key' }
           ]
           probes: [
             {
