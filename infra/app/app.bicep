@@ -43,6 +43,9 @@ var sasUrl = 'https://${storage.name}.blob.${environment().suffixes.storage}/tok
 
 resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2023-08-01-preview' existing = {
   name: containerAppsEnvironmentName
+  resource data 'storages' existing = {
+    name: 'data'
+  }
 }
 
 resource certificate 'Microsoft.App/managedEnvironments/managedCertificates@2023-08-01-preview' = if (!empty(appCustomDomainName)) {
@@ -108,6 +111,13 @@ resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
       ]
     }
     template: {
+      volumes: [
+        {
+          name: 'data'
+          storageName: containerAppsEnvironment::data.name
+          storageType: 'AzureFile'
+        }
+      ]
       containers: [
         {
           name: 'main'
@@ -146,6 +156,12 @@ resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
             cpu: json('0.25')
             memory: '0.5Gi'
           }
+          volumeMounts: [
+            {
+              volumeName: 'data'
+              mountPath: '/data'
+            }
+          ]
         }
       ]
       scale: {

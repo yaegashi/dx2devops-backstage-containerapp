@@ -251,6 +251,7 @@ module env './app/env.bicep' = {
     tags: tags
     containerAppsEnvironmentName: xContainerAppsEnvironmentName
     logAnalyticsWorkspaceName: monitoring.outputs.logAnalyticsWorkspaceName
+    storageAccountName: storageAccount.outputs.name
   }
 }
 
