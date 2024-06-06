@@ -1,3 +1,5 @@
+# Default app config values for Backstage.
+# To be overridden by /data/config/app-config.*.yaml or APP_CONFIG_* env vars in the production environment.
 app:
   title: Backstage Example App
   baseUrl: http://localhost:7007
@@ -5,15 +7,24 @@ app:
 backend:
   baseUrl: http://localhost:7007
   listen: :7007
-  csp:
-    connect-src: ["'self'", 'http:', 'https:']
-    img-src: ["'self'", 'data:', 'http:', 'https:']
   database:
     client: pg
     connection: "postgresql://postgres:secret@postgres:5432"
+  csp:
+    connect-src: ["'self'", "http:", "https:"]
+    img-src: ["'self'", "data:", "http:", "https:"]
+  reading:
+    allow: [{ host: demo.backstage.io }]
 
-organization:
-  name: My Company
+auth:
+  environment: development
+  providers:
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
+    azureEasyAuth:
+      signIn:
+        resolvers:
+          - resolver: idMatchingUserEntityAnnotation
 
 techdocs:
   builder: local
@@ -22,12 +33,24 @@ techdocs:
   publisher:
     type: local
 
+organization:
+  name: My Company
+
 catalog:
   orphanStrategy: delete
   import:
     entityFilename: catalog-info.yaml
     pullRequestBranchName: backstage-integration
+  rules:
+    - allow: [Component, System, API, Resource, Location, User, Group, Domain]
   locations:
     - type: file
-      target: /catalogs/example.yaml
-      rules: [allow: [Component, System, API, Resource, Location, Domain, Group, User]]
+      target: ./examples/entities.yaml
+    - type: file
+      target: ./examples/template/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./examples/org.yaml
+      rules:
+        - allow: [User, Group]
