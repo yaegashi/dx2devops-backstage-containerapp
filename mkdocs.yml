@@ -1,0 +1,8 @@
+site_name: DevOps for Backstage on Azure Container Apps
+plugins:
+  - techdocs-core
+nav:
+  - Introduction: index.md
+  - Local development: local_development.md
+  - Azure deployment: azure_deployment.md
+  - Architecture: architecture.md

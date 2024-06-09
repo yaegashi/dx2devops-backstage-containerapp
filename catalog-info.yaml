@@ -1,0 +1,19 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: dx2devops-backstage-containerapps
+  title: Backstage GitOps
+  description: GitOps repository for Backstage on Azure Container Apps with Azure Developer CLI
+  tags:
+    - backstage
+    - devops
+    - azure-container-apps
+    - azure-developer-cli
+  annotations:
+    github.com/project-slug: yaegashi/dx2devops-backstage-devops
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: yaegashi
+  type: gitops
+  lifecycle: experimental
