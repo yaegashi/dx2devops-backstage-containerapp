@@ -7,9 +7,8 @@ services:
     ports:
       - 7007:7007
     volumes:
-      - ./app-config.yaml:/app/app-config.yaml
-      - ./catalogs:/catalogs
-      - ./data/techdocs:/data/techdocs
+      - ./data/config:/data/config
+      - ./data/catalogs:/data/catalogs
     depends_on:
       postgres:
         condition: service_healthy
