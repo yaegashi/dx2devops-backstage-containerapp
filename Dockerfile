@@ -77,6 +77,13 @@ RUN pip3 install mkdocs-kroki-plugin mkdocs-techdocs-core
 RUN curl -o plantuml.jar -L https://github.com/plantuml/plantuml/releases/download/v1.2023.10/plantuml-1.2023.10.jar && echo "527d28af080ae91a455e7023e1a726c7714dc98e plantuml.jar" | sha1sum -c - && mv plantuml.jar /opt/plantuml.jar
 RUN echo '#!/bin/sh\n\njava -jar '/opt/plantuml.jar' ${@}' >> /usr/local/bin/plantuml && chmod 755 /usr/local/bin/plantuml
 
+# Install sudo
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends sudo && \
+    echo "node ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
 # From here on we use the least-privileged `node` user to run the backend.
 USER node
 
