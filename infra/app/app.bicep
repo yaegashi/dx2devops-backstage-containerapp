@@ -135,7 +135,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-08-01-preview' = {
           image: !empty(imageName) ? imageName : 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
           env: [
             // containerapps-helloworld: avoid HTTP 431 error
-            { name: 'NODE_OPTIONS', value: '--max-http-header-size=32768' }
+            { name: 'NODE_OPTIONS', value: '--max-http-header-size=32768 --no-node-snapshot' }
             // containerapps-helloworld: set listening port
             { name: 'PORT', value: '7007' }
             { name: 'TZ', value: tz }
