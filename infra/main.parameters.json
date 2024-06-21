@@ -38,6 +38,9 @@
     "appCertificateExists": {
       "value": "${APP_CERTIFICATE_EXISTS=false}"
     },
+    "dnsZoneSubscriptionId": {
+      "value": "${DNS_ZONE_SUBSCRIPTION_ID}"
+    },
     "dnsZoneResourceGroupName": {
       "value": "${DNS_ZONE_RESOURCE_GROUP_NAME}"
     },
